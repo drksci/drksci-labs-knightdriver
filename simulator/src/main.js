@@ -1,14 +1,9 @@
 // Import wokwi-elements web components
 import '@wokwi/elements';
 
-// Simulation state
-let running = true; // Auto-start
-let intervalId = null;
-
 // System state (matching firmware exactly)
 const state = {
   highBeamOn: false,
-  lastHighBeamOn: false,
   driverEnabled: false,
   driverState: false,
   flashCount: 0,
@@ -16,61 +11,71 @@ const state = {
   lastFlashOffTime: 0,
   lastFlashOnTime: 0,
   led13State: false,
-  led11State: false,
   led11Active: false,
   led11StartTime: 0,
   lastLed13Toggle: 0,
-  lastLed11Toggle: 0,
 };
 
 // Constants (matching firmware)
 const FLASH_TIMEOUT = 3000;
 const MIN_FLASH_DURATION = 100;
 const MAX_FLASH_DURATION = 2000;
+const DRIVER_LED_INTERVAL = 150;
 
 // DOM Elements
-const elements = {
-  highbeamStalk: document.getElementById('highbeam-stalk'),
-  highbeamLeft: document.getElementById('highbeam-left'),
-  highbeamRight: document.getElementById('highbeam-right'),
-  spotlightLeft: document.getElementById('spotlight-left'),
-  spotlightRight: document.getElementById('spotlight-right'),
-  statusHighbeam: document.getElementById('status-highbeam'),
-  statusEnabled: document.getElementById('status-enabled'),
-  statusSpots: document.getElementById('status-spots'),
-  flashCount: document.getElementById('flash-count'),
-  flashDot1: document.getElementById('flash-dot-1'),
-  flashDot2: document.getElementById('flash-dot-2'),
+const el = {
+  // Circuit panel
+  led13: document.getElementById('led-13'),
+  led11: document.getElementById('led-11'),
+  sensorAmps: document.getElementById('sensor-amps'),
+  sensorAdc: document.getElementById('sensor-adc'),
+  driverOutput: document.getElementById('driver-output'),
+  sigHb: document.getElementById('sig-hb'),
+  sigSensor: document.getElementById('sig-sensor'),
+  sigMcu: document.getElementById('sig-mcu'),
+  sigDriver: document.getElementById('sig-driver'),
+  sigSpots: document.getElementById('sig-spots'),
+  stHighbeam: document.getElementById('st-highbeam'),
+  stEnabled: document.getElementById('st-enabled'),
+  stActive: document.getElementById('st-active'),
+  flashCountText: document.getElementById('flash-count'),
+
+  // Dash panel
+  stalk: document.getElementById('stalk'),
+  hbLeft: document.getElementById('hb-left'),
+  hbRight: document.getElementById('hb-right'),
+  spotLeft: document.getElementById('spot-left'),
+  spotRight: document.getElementById('spot-right'),
+  flashInd: document.getElementById('flash-ind'),
+  pip1: document.getElementById('pip-1'),
+  pip2: document.getElementById('pip-2'),
+  dashHb: document.getElementById('dash-hb'),
+  dashEnabled: document.getElementById('dash-enabled'),
+  dashSpots: document.getElementById('dash-spots'),
 };
 
-// ===== VEHICLE MODE FUNCTIONS (matching firmware exactly) =====
+// ===== FLASH DETECTION LOGIC (matching firmware) =====
 
 function handleHighBeamOn() {
   const currentTime = Date.now();
   state.lastFlashOnTime = currentTime;
 
-  // Check if this was previously off (potential flash)
   if (state.lastFlashOffTime > 0) {
     const offDuration = currentTime - state.lastFlashOffTime;
 
-    // If it was off briefly, this is a flash
     if (offDuration >= MIN_FLASH_DURATION && offDuration <= MAX_FLASH_DURATION) {
       if (state.flashCount === 0) {
-        // First flash detected
         state.flashCount = 1;
         state.firstFlashTime = currentTime;
-        activateFlashIndicator();
+        state.led11Active = true;
+        state.led11StartTime = currentTime;
       } else if (state.flashCount === 1) {
-        // Check if second flash is within timeout
         const timeSinceFirst = currentTime - state.firstFlashTime;
-
         if (timeSinceFirst <= FLASH_TIMEOUT) {
-          // Second flash detected - TOGGLE driver!
           state.flashCount = 2;
-          toggleDriver();
-          setTimeout(() => resetFlashDetection(), 500);
+          state.driverEnabled = !state.driverEnabled;
+          setTimeout(resetFlashDetection, 500);
         } else {
-          // Timeout expired, treat as new first flash
           state.flashCount = 1;
           state.firstFlashTime = currentTime;
         }
@@ -80,10 +85,8 @@ function handleHighBeamOn() {
 }
 
 function handleHighBeamOff() {
-  // Record when high beam turned off
   state.lastFlashOffTime = Date.now();
 
-  // Check if the ON duration was too long (not a flash, just normal use)
   if (state.flashCount > 0 && state.lastFlashOnTime > 0) {
     const onDuration = state.lastFlashOffTime - state.lastFlashOnTime;
     if (onDuration > MAX_FLASH_DURATION) {
@@ -92,19 +95,9 @@ function handleHighBeamOff() {
   }
 }
 
-function toggleDriver() {
-  state.driverEnabled = !state.driverEnabled;
-}
-
 function updateDriver() {
-  let newDriverState = false;
-
   // SAFETY: Driver can only be ON if high beam is ON
-  if (state.highBeamOn && state.driverEnabled) {
-    newDriverState = true;
-  }
-
-  state.driverState = newDriverState;
+  state.driverState = state.highBeamOn && state.driverEnabled;
 }
 
 function resetFlashDetection() {
@@ -113,22 +106,16 @@ function resetFlashDetection() {
   state.lastFlashOffTime = 0;
 }
 
-function activateFlashIndicator() {
-  state.led11Active = true;
-  state.led11StartTime = Date.now();
-}
+// ===== CONTROLS =====
 
-// Toggle high beam state
 function setHighBeam(on) {
   if (on !== state.highBeamOn) {
     state.highBeamOn = on;
-
     if (state.highBeamOn) {
       handleHighBeamOn();
     } else {
       handleHighBeamOff();
     }
-
     updateDriver();
     updateUI();
   }
@@ -138,14 +125,11 @@ function toggleHighBeam() {
   setHighBeam(!state.highBeamOn);
 }
 
-// Flash helper - simulates a quick OFF-ON cycle
 function doFlash() {
   if (state.highBeamOn) {
-    // Turn off briefly, then back on
     setHighBeam(false);
     setTimeout(() => setHighBeam(true), 150);
   } else {
-    // Turn on, then off, then on (to register as flash)
     setHighBeam(true);
     setTimeout(() => {
       setHighBeam(false);
@@ -154,57 +138,99 @@ function doFlash() {
   }
 }
 
-// Update UI
+// ===== UI UPDATES =====
+
 function updateUI() {
-  // Stalk position
-  elements.highbeamStalk.classList.toggle('active', state.highBeamOn);
-
-  // High beam lights
-  elements.highbeamLeft.classList.toggle('on', state.highBeamOn);
-  elements.highbeamRight.classList.toggle('on', state.highBeamOn);
-
-  // Spotlights
-  elements.spotlightLeft.classList.toggle('on', state.driverState);
-  elements.spotlightRight.classList.toggle('on', state.driverState);
-
-  // Status indicators
-  elements.statusHighbeam.classList.toggle('on', state.highBeamOn);
-  elements.statusEnabled.classList.toggle('on', state.driverEnabled);
-  elements.statusSpots.classList.toggle('on', state.driverState);
-
-  // Flash count indicator
-  const showFlashCount = state.flashCount > 0 || state.led11Active;
-  elements.flashCount.classList.toggle('visible', showFlashCount);
-  elements.flashDot1.classList.toggle('active', state.flashCount >= 1);
-  elements.flashDot2.classList.toggle('active', state.flashCount >= 2);
-}
-
-// Main simulation loop
-function simulationTick() {
   const now = Date.now();
 
-  // Timeout flash detection after 3 seconds
-  if (state.flashCount > 0 && (now - state.firstFlashTime) > FLASH_TIMEOUT) {
-    resetFlashDetection();
-    updateUI();
-  }
+  // Simulated current reading
+  const amps = state.highBeamOn ? 5.2 : 0.0;
+  const adc = Math.round(512 + (amps * 20.48));
 
-  // Update flash indicator timeout
-  if (state.led11Active && (now - state.led11StartTime) > 3000) {
-    state.led11Active = false;
-    updateUI();
+  // Circuit panel - sensor
+  el.sensorAmps.textContent = `${amps.toFixed(1)}A`;
+  el.sensorAdc.textContent = `ADC: ${adc}`;
+
+  // Circuit panel - driver
+  el.driverOutput.textContent = state.driverState ? 'ON' : 'OFF';
+  el.driverOutput.classList.toggle('on', state.driverState);
+  el.driverOutput.classList.toggle('off', !state.driverState);
+
+  // Circuit panel - LEDs
+  // D13 flashes when driver is active
+  if (state.driverState) {
+    if (now - state.lastLed13Toggle >= DRIVER_LED_INTERVAL) {
+      state.led13State = !state.led13State;
+      state.lastLed13Toggle = now;
+    }
+  } else {
+    state.led13State = false;
   }
+  el.led13.classList.toggle('on', state.led13State);
+
+  // D11 flashes during flash detection
+  const led11On = state.led11Active && (Math.floor((now - state.led11StartTime) / 100) % 2 === 0);
+  el.led11.classList.toggle('on', led11On);
+
+  // Circuit panel - signal flow
+  el.sigHb.classList.toggle('active', state.highBeamOn);
+  el.sigSensor.classList.toggle('active', state.highBeamOn);
+  el.sigMcu.classList.toggle('active', state.highBeamOn);
+  el.sigDriver.classList.toggle('active', state.driverState);
+  el.sigSpots.classList.toggle('active', state.driverState);
+
+  // Circuit panel - status
+  el.stHighbeam.classList.toggle('on', state.highBeamOn);
+  el.stEnabled.classList.toggle('on', state.driverEnabled);
+  el.stActive.classList.toggle('on', state.driverState);
+  el.flashCountText.textContent = state.flashCount;
+
+  // Dash panel - stalk
+  el.stalk.classList.toggle('active', state.highBeamOn);
+
+  // Dash panel - light beams
+  el.hbLeft.classList.toggle('on', state.highBeamOn);
+  el.hbRight.classList.toggle('on', state.highBeamOn);
+  el.spotLeft.classList.toggle('on', state.driverState);
+  el.spotRight.classList.toggle('on', state.driverState);
+
+  // Dash panel - flash indicator
+  const showFlash = state.flashCount > 0 || state.led11Active;
+  el.flashInd.classList.toggle('visible', showFlash);
+  el.pip1.classList.toggle('active', state.flashCount >= 1);
+  el.pip2.classList.toggle('active', state.flashCount >= 2);
+
+  // Dash panel - status
+  el.dashHb.classList.toggle('on', state.highBeamOn);
+  el.dashEnabled.classList.toggle('on', state.driverEnabled);
+  el.dashSpots.classList.toggle('on', state.driverState);
 }
 
-// Event listeners
-function setupEventListeners() {
-  // High beam stalk click - toggle high beam
-  elements.highbeamStalk.addEventListener('click', toggleHighBeam);
+// ===== SIMULATION LOOP =====
 
-  // Double-click on stalk for quick double-flash
-  elements.highbeamStalk.addEventListener('dblclick', (e) => {
+function tick() {
+  const now = Date.now();
+
+  // Timeout flash detection
+  if (state.flashCount > 0 && (now - state.firstFlashTime) > FLASH_TIMEOUT) {
+    resetFlashDetection();
+  }
+
+  // Timeout flash LED indicator
+  if (state.led11Active && (now - state.led11StartTime) > 3000) {
+    state.led11Active = false;
+  }
+
+  updateUI();
+}
+
+// ===== EVENT LISTENERS =====
+
+function setupEventListeners() {
+  el.stalk.addEventListener('click', toggleHighBeam);
+
+  el.stalk.addEventListener('dblclick', (e) => {
     e.preventDefault();
-    // Perform two flashes
     setHighBeam(true);
     setTimeout(() => {
       doFlash();
@@ -212,7 +238,6 @@ function setupEventListeners() {
     }, 200);
   });
 
-  // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     if (e.key === 'f' || e.key === 'F' || e.key === ' ') {
       e.preventDefault();
@@ -224,14 +249,11 @@ function setupEventListeners() {
   });
 }
 
-// Initialize
+// ===== INIT =====
+
 function init() {
   setupEventListeners();
-
-  // Start simulation loop
-  intervalId = setInterval(simulationTick, 50);
-
-  // Initial UI update
+  setInterval(tick, 50);
   updateUI();
 }
 
