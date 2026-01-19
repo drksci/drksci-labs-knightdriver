@@ -3,169 +3,384 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KNIGHTDRIVER Simulator</title>
+  <title>KNIGHTDRIVER Circuit Simulator</title>
   <style>
     :root {
-      --bg-dark: #1a1a2e;
-      --bg-panel: #16213e;
+      --bg: #1a1a2e;
+      --panel: #0f0f1a;
       --accent: #e94560;
-      --accent-dim: #533a47;
-      --text: #eee;
-      --text-dim: #888;
-      --lcd-bg: #2d5016;
-      --lcd-text: #90EE90;
-      --led-off: #331111;
-      --led-on: #ff3333;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-      background: var(--bg-dark);
-      color: var(--text);
+      background: var(--bg);
+      color: #fff;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
+      overflow-x: auto;
     }
 
-    h1 {
+    .header {
+      background: var(--panel);
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .header h1 {
       color: var(--accent);
-      margin-bottom: 10px;
-      font-size: 1.8em;
+      font-size: 1.4em;
       letter-spacing: 2px;
     }
 
-    .subtitle {
-      color: var(--text-dim);
-      margin-bottom: 30px;
-      font-size: 0.9em;
+    .controls {
+      display: flex;
+      gap: 10px;
     }
 
-    .simulator-container {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 20px;
-      max-width: 1000px;
-      width: 100%;
+    .btn {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
     }
 
-    .main-panel {
-      background: var(--bg-panel);
-      border-radius: 12px;
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { background: #333; cursor: not-allowed; }
+    .btn.secondary { background: #444; }
+
+    .workspace {
+      display: flex;
+      min-height: calc(100vh - 60px);
+    }
+
+    .circuit-area {
+      flex: 1;
       padding: 20px;
+      overflow: auto;
+      background:
+        linear-gradient(90deg, #252540 1px, transparent 1px),
+        linear-gradient(#252540 1px, transparent 1px);
+      background-size: 20px 20px;
     }
 
+    .circuit-container {
+      position: relative;
+      width: 1200px;
+      height: 750px;
+      margin: 0 auto;
+    }
+
+    /* Positioning for wokwi components */
+    .component-wrapper {
+      position: absolute;
+    }
+
+    .arduino-wrapper {
+      left: 20px;
+      top: 280px;
+    }
+
+    .lcd-wrapper {
+      left: 400px;
+      top: 50px;
+    }
+
+    .led-wrapper-13 {
+      left: 750px;
+      top: 150px;
+    }
+
+    .led-wrapper-11 {
+      left: 750px;
+      top: 220px;
+    }
+
+    .resistor-wrapper-1 {
+      left: 700px;
+      top: 160px;
+    }
+
+    .resistor-wrapper-2 {
+      left: 700px;
+      top: 230px;
+    }
+
+    .pushbutton-wrapper {
+      left: 600px;
+      top: 400px;
+    }
+
+    /* Custom module styling */
+    .module {
+      position: absolute;
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+
+    .module-label {
+      font-size: 10px;
+      color: #aaa;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ACS712 Module */
+    .acs712-module {
+      left: 400px;
+      top: 280px;
+      width: 150px;
+      height: 100px;
+      background: linear-gradient(135deg, #4a148c 0%, #311b92 100%);
+      border: 2px solid #7c4dff;
+    }
+
+    .acs712-chip {
+      width: 40px;
+      height: 30px;
+      background: #212121;
+      margin: 5px auto;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #666;
+    }
+
+    .screw-terminals {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .screw-terminal {
+      width: 30px;
+      height: 20px;
+      background: #2196f3;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .screw-terminal::after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background: #90a4ae;
+      border-radius: 50%;
+    }
+
+    .current-display {
+      position: absolute;
+      right: 5px;
+      top: 30px;
+      font-size: 11px;
+      color: #ce93d8;
+      text-align: right;
+    }
+
+    /* BTS7960 Module */
+    .bts7960-module {
+      left: 400px;
+      top: 420px;
+      width: 170px;
+      height: 130px;
+      background: linear-gradient(135deg, #bf360c 0%, #8d3009 100%);
+      border: 2px solid #ff5722;
+    }
+
+    .heatsink {
+      width: 70px;
+      height: 50px;
+      background: repeating-linear-gradient(
+        90deg,
+        #424242,
+        #424242 4px,
+        #616161 4px,
+        #616161 8px
+      );
+      margin: 5px 0;
+      border-radius: 2px;
+    }
+
+    .motor-terminals {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 5px;
+    }
+
+    .motor-terminal {
+      background: #2196f3;
+      padding: 3px 8px;
+      border-radius: 2px;
+      font-size: 9px;
+    }
+
+    .driver-status {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #ffab91;
+    }
+
+    /* High Beam Switch Module */
+    .highbeam-module {
+      left: 620px;
+      top: 280px;
+      width: 130px;
+      height: 170px;
+      background: linear-gradient(135deg, #37474f 0%, #263238 100%);
+      border: 2px solid #546e7a;
+    }
+
+    .stalk {
+      width: 35px;
+      height: 90px;
+      background: linear-gradient(90deg, #455a64 0%, #78909c 50%, #455a64 100%);
+      margin: 10px auto;
+      border-radius: 18px;
+      cursor: pointer;
+      transition: transform 0.15s;
+      position: relative;
+    }
+
+    .stalk:hover {
+      filter: brightness(1.1);
+    }
+
+    .stalk.active {
+      transform: translateY(-8px);
+      background: linear-gradient(90deg, #546e7a 0%, #90a4ae 50%, #546e7a 100%);
+    }
+
+    .stalk-knob {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 45px;
+      height: 28px;
+      background: #78909c;
+      border-radius: 8px;
+    }
+
+    .beam-status {
+      text-align: center;
+      font-size: 12px;
+      color: #90a4ae;
+      margin-top: 10px;
+    }
+
+    .beam-status.on {
+      color: #4fc3f7;
+      text-shadow: 0 0 10px #4fc3f7;
+    }
+
+    /* Spotlight Output */
+    .spotlight-module {
+      left: 800px;
+      top: 350px;
+      width: 120px;
+      height: 140px;
+      background: linear-gradient(135deg, #424242 0%, #212121 100%);
+      border: 2px solid #616161;
+      border-radius: 50% 50% 10px 10px;
+    }
+
+    .spotlight-lens {
+      width: 80px;
+      height: 80px;
+      margin: 10px auto;
+      background: #333;
+      border-radius: 50%;
+      border: 3px solid #555;
+      transition: all 0.3s;
+    }
+
+    .spotlight-lens.on {
+      background: radial-gradient(circle, #fff9c4 0%, #ffeb3b 40%, #ffc107 100%);
+      box-shadow: 0 0 40px #ffeb3b, 0 0 80px #ffc107;
+    }
+
+    .spotlight-label {
+      text-align: center;
+      font-size: 10px;
+      color: #888;
+      margin-top: 5px;
+    }
+
+    /* Wire SVG overlay */
+    .wire-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .wire-path {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Side Panel */
     .side-panel {
+      width: 300px;
+      background: var(--panel);
+      border-left: 2px solid #333;
+      padding: 15px;
       display: flex;
       flex-direction: column;
       gap: 15px;
+      overflow-y: auto;
     }
 
-    .panel {
-      background: var(--bg-panel);
-      border-radius: 12px;
-      padding: 15px;
+    .panel-section {
+      background: #1a1a2a;
+      border-radius: 6px;
+      padding: 12px;
     }
 
     .panel-title {
       color: var(--accent);
-      font-size: 0.8em;
+      font-size: 0.75em;
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 10px;
-      border-bottom: 1px solid var(--accent-dim);
       padding-bottom: 5px;
+      border-bottom: 1px solid #333;
     }
 
-    /* LCD Display */
-    .lcd-container {
-      background: #1a1a1a;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
-    }
+    .slider-group { margin-bottom: 10px; }
 
-    .lcd-screen {
-      background: var(--lcd-bg);
-      border-radius: 4px;
-      padding: 10px 15px;
-      font-family: 'LCD', monospace;
-      box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
-    }
-
-    .lcd-row {
-      color: var(--lcd-text);
-      font-size: 24px;
-      letter-spacing: 3px;
-      white-space: pre;
-      text-shadow: 0 0 10px var(--lcd-text);
-      height: 30px;
-      line-height: 30px;
-    }
-
-    /* LEDs */
-    .led-row {
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      margin: 20px 0;
-    }
-
-    .led-indicator {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .led {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--led-off);
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      transition: all 0.05s;
-    }
-
-    .led.on {
-      background: var(--led-on);
-      box-shadow: 0 0 15px var(--led-on), 0 0 30px var(--led-on);
-    }
-
-    .led-label {
-      font-size: 0.7em;
-      color: var(--text-dim);
-    }
-
-    /* Controls */
-    .control-group {
-      margin-bottom: 15px;
-    }
-
-    .control-label {
+    .slider-label {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      font-size: 0.8em;
       margin-bottom: 5px;
-      font-size: 0.85em;
     }
 
-    .control-value {
-      color: var(--accent);
-      font-weight: bold;
-    }
+    .slider-value { color: var(--accent); }
 
     input[type="range"] {
       width: 100%;
-      height: 8px;
-      border-radius: 4px;
+      height: 6px;
+      border-radius: 3px;
       background: #333;
       outline: none;
       -webkit-appearance: none;
@@ -173,248 +388,231 @@
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
     }
 
-    /* Buttons */
-    .button-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-
-    .sim-btn {
-      background: #333;
-      border: 1px solid #555;
-      color: var(--text);
-      padding: 10px 5px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.75em;
-      transition: all 0.1s;
-    }
-
-    .sim-btn:hover {
-      background: #444;
-    }
-
-    .sim-btn:active, .sim-btn.pressed {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    .sim-btn.wide {
-      grid-column: span 3;
-    }
-
-    /* Serial Monitor */
     .serial-output {
       background: #0a0a0a;
       border-radius: 4px;
-      padding: 10px;
+      padding: 8px;
       height: 150px;
       overflow-y: auto;
-      font-size: 0.75em;
+      font-size: 0.7em;
       color: #0f0;
-      font-family: monospace;
     }
 
     .serial-line {
-      margin: 2px 0;
+      margin: 1px 0;
       white-space: pre-wrap;
-      word-break: break-all;
     }
 
-    /* Status */
-    .status-bar {
+    .status-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid #333;
       font-size: 0.8em;
+      padding: 5px 0;
+      border-bottom: 1px solid #222;
     }
 
-    .status-indicator {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
+    .status-value { color: var(--accent); }
+    .status-value.on { color: #4caf50; }
+    .status-value.off { color: #666; }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #333;
-    }
-
-    .status-dot.running {
-      background: #0f0;
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .controls-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .ctrl-btn {
-      flex: 1;
-      background: var(--accent);
-      border: none;
-      color: white;
-      padding: 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 0.85em;
-    }
-
-    .ctrl-btn:hover {
-      filter: brightness(1.1);
-    }
-
-    .ctrl-btn:disabled {
-      background: #333;
-      cursor: not-allowed;
-    }
-
-    /* Driver output visualization */
-    .driver-output {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      background: #111;
-      border-radius: 6px;
-      margin-top: 10px;
-    }
-
-    .driver-status {
-      font-size: 0.9em;
-    }
-
-    .spotlight-icon {
-      font-size: 1.5em;
-      filter: grayscale(1) brightness(0.3);
-      transition: all 0.2s;
-    }
-
-    .spotlight-icon.on {
-      filter: none;
-      text-shadow: 0 0 20px yellow;
+    /* Component labels */
+    .component-label {
+      position: absolute;
+      font-size: 9px;
+      color: #666;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
-  <h1>KNIGHTDRIVER</h1>
-  <p class="subtitle">AVR8JS Arduino Simulator</p>
+  <div class="header">
+    <h1>KNIGHTDRIVER Circuit Simulator</h1>
+    <div class="controls">
+      <button class="btn" id="btn-start">Start</button>
+      <button class="btn secondary" id="btn-stop" disabled>Stop</button>
+      <button class="btn secondary" id="btn-reset">Reset</button>
+    </div>
+  </div>
 
-  <div class="simulator-container">
-    <div class="main-panel">
-      <!-- LCD Display -->
-      <div class="lcd-container">
-        <div class="lcd-screen">
-          <div class="lcd-row" id="lcd-row-0">  KNIGHTDRIVER  </div>
-          <div class="lcd-row" id="lcd-row-1">   Loading...   </div>
-        </div>
-      </div>
+  <div class="workspace">
+    <div class="circuit-area">
+      <div class="circuit-container">
+        <!-- Wire connections (SVG) -->
+        <svg class="wire-overlay" viewBox="0 0 1200 750">
+          <!-- Power rails -->
+          <path class="wire-path" stroke="#e53935" d="M 280 320 L 350 320 L 350 200 L 400 200" />
+          <path class="wire-path" stroke="#e53935" d="M 350 200 L 350 320 L 400 320" />
+          <path class="wire-path" stroke="#e53935" d="M 350 200 L 350 450 L 400 450" />
 
-      <!-- LED Indicators -->
-      <div class="led-row">
-        <div class="led-indicator">
-          <div class="led" id="led-13"></div>
-          <span class="led-label">D13 Status</span>
-        </div>
-        <div class="led-indicator">
-          <div class="led" id="led-11"></div>
-          <span class="led-label">D11 Flash</span>
-        </div>
-        <div class="led-indicator">
-          <div class="led" id="led-driver"></div>
-          <span class="led-label">Driver</span>
-        </div>
-      </div>
+          <!-- Ground -->
+          <path class="wire-path" stroke="#424242" d="M 280 335 L 370 335 L 370 215 L 400 215" />
+          <path class="wire-path" stroke="#424242" d="M 370 335 L 400 335" />
+          <path class="wire-path" stroke="#424242" d="M 370 465 L 400 465" />
 
-      <!-- Driver/Spotlight Output -->
-      <div class="driver-output">
-        <span class="spotlight-icon" id="spotlight-icon">💡</span>
-        <span class="driver-status">Spotlight Output: <span id="driver-state">OFF</span></span>
-      </div>
+          <!-- A1 to ACS712 -->
+          <path class="wire-path" stroke="#2196f3" d="M 280 420 L 320 420 L 320 350 L 400 350" />
 
-      <!-- Status Bar -->
-      <div class="status-bar">
-        <div class="status-indicator">
-          <div class="status-dot" id="status-dot"></div>
-          <span id="status-text">Stopped</span>
-        </div>
-        <div>
-          <span id="cycle-count">0</span> cycles
-        </div>
-      </div>
+          <!-- D3 to BTS7960 -->
+          <path class="wire-path" stroke="#ff9800" d="M 280 295 L 340 295 L 340 480 L 400 480" />
 
-      <div class="controls-row">
-        <button class="ctrl-btn" id="btn-start">Start</button>
-        <button class="ctrl-btn" id="btn-stop" disabled>Stop</button>
-        <button class="ctrl-btn" id="btn-reset">Reset</button>
+          <!-- ACS712 current path (dashed = high current) -->
+          <path class="wire-path" stroke="#fdd835" stroke-dasharray="8,4" d="M 470 380 L 470 400 L 660 400 L 660 350" />
+          <path class="wire-path" stroke="#fdd835" stroke-dasharray="8,4" d="M 750 350 L 800 350 L 800 400" />
+
+          <!-- BTS7960 to Spotlight -->
+          <path class="wire-path" stroke="#43a047" d="M 570 470 L 620 470 L 750 470 L 800 470 L 800 440" />
+
+          <!-- D13 LED -->
+          <path class="wire-path" stroke="#f44336" d="M 280 280 L 700 280 L 700 180 L 740 180" />
+
+          <!-- D11 LED -->
+          <path class="wire-path" stroke="#ff9800" d="M 280 290 L 690 290 L 690 250 L 740 250" />
+        </svg>
+
+        <!-- Arduino Uno (wokwi element) -->
+        <div class="component-wrapper arduino-wrapper">
+          <wokwi-arduino-uno id="arduino"></wokwi-arduino-uno>
+          <span class="component-label" style="left: 100px; top: -15px;">Arduino Uno R3</span>
+        </div>
+
+        <!-- LCD 16x2 (wokwi element) -->
+        <div class="component-wrapper lcd-wrapper">
+          <wokwi-lcd1602 id="lcd" text="  KNIGHTDRIVER     Ready...    "></wokwi-lcd1602>
+          <span class="component-label" style="left: 80px; top: -15px;">LCD 16x2 Display</span>
+        </div>
+
+        <!-- Status LED D13 -->
+        <div class="component-wrapper led-wrapper-13">
+          <wokwi-led id="led-13" color="red"></wokwi-led>
+          <span class="component-label" style="left: 30px; top: 10px;">D13</span>
+        </div>
+
+        <!-- Flash LED D11 -->
+        <div class="component-wrapper led-wrapper-11">
+          <wokwi-led id="led-11" color="yellow"></wokwi-led>
+          <span class="component-label" style="left: 30px; top: 10px;">D11</span>
+        </div>
+
+        <!-- Resistors -->
+        <div class="component-wrapper resistor-wrapper-1">
+          <wokwi-resistor value="220"></wokwi-resistor>
+        </div>
+        <div class="component-wrapper resistor-wrapper-2">
+          <wokwi-resistor value="220"></wokwi-resistor>
+        </div>
+
+        <!-- ACS712 Current Sensor Module -->
+        <div class="module acs712-module">
+          <div class="module-label">ACS712-20A</div>
+          <div class="acs712-chip">SENSOR</div>
+          <div class="screw-terminals">
+            <div class="screw-terminal" title="IP+"></div>
+            <div class="screw-terminal" title="IP-"></div>
+          </div>
+          <div class="current-display">
+            <div id="current-amps">0.0A</div>
+            <div id="current-adc" style="font-size: 9px;">ADC: 512</div>
+          </div>
+        </div>
+
+        <!-- BTS7960 Motor Driver Module -->
+        <div class="module bts7960-module">
+          <div class="module-label">BTS7960 43A</div>
+          <div class="heatsink"></div>
+          <div class="motor-terminals">
+            <div class="motor-terminal">RPWM</div>
+            <div class="motor-terminal">LPWM</div>
+            <div class="motor-terminal">M+</div>
+            <div class="motor-terminal">M-</div>
+            <div class="motor-terminal">B+</div>
+            <div class="motor-terminal">B-</div>
+          </div>
+          <div class="driver-status">Output: <span id="driver-state">OFF</span></div>
+        </div>
+
+        <!-- High Beam Switch -->
+        <div class="module highbeam-module">
+          <div class="module-label">High Beam Stalk</div>
+          <div class="stalk" id="highbeam-stalk">
+            <div class="stalk-knob"></div>
+          </div>
+          <div class="beam-status" id="beam-status">● OFF</div>
+        </div>
+
+        <!-- Spotlight Output -->
+        <div class="module spotlight-module">
+          <div class="spotlight-lens" id="spotlight-lens"></div>
+          <div class="spotlight-label">SPOTLIGHT</div>
+        </div>
+
+        <!-- Push button for testing -->
+        <div class="component-wrapper pushbutton-wrapper">
+          <wokwi-pushbutton id="test-btn" color="red" label="Flash"></wokwi-pushbutton>
+        </div>
       </div>
     </div>
 
     <div class="side-panel">
-      <!-- ACS712 Sensor Input -->
-      <div class="panel">
-        <div class="panel-title">ACS712 Current Sensor (A1)</div>
-        <div class="control-group">
-          <div class="control-label">
-            <span>High Beam Current</span>
-            <span class="control-value" id="adc-value">512</span>
+      <div class="panel-section">
+        <div class="panel-title">High Beam Simulation</div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Current (Amps)</span>
+            <span class="slider-value" id="current-value">0.0A</span>
           </div>
-          <input type="range" id="adc-slider" min="0" max="1023" value="512">
-          <div class="control-label" style="margin-top: 5px;">
-            <span style="font-size: 0.7em; color: var(--text-dim);">OFF (0A)</span>
-            <span style="font-size: 0.7em; color: var(--text-dim);">ON (~4A)</span>
-          </div>
+          <input type="range" id="current-slider" min="0" max="10" step="0.1" value="0">
         </div>
-        <div style="font-size: 0.75em; color: var(--text-dim); margin-top: 10px;">
-          Threshold: 560 (high) / 530 (low)<br>
-          Zero point: 512 (2.5V at 0A)
+        <div style="font-size: 0.7em; color: #666; margin-top: 8px;">
+          Drag slider to simulate high beam current.<br>
+          Detection threshold: ~2A (ADC 560)
         </div>
       </div>
 
-      <!-- LCD Keypad Buttons -->
-      <div class="panel">
-        <div class="panel-title">LCD Keypad Shield (A0)</div>
-        <div class="button-grid">
-          <div></div>
-          <button class="sim-btn" id="btn-up">UP<br><small>Flash</small></button>
-          <div></div>
-          <button class="sim-btn" id="btn-left">LEFT</button>
-          <button class="sim-btn" id="btn-select">SELECT<br><small>Hi-Beam</small></button>
-          <button class="sim-btn" id="btn-right">RIGHT</button>
-          <div></div>
-          <button class="sim-btn" id="btn-down">DOWN<br><small>Dip</small></button>
-          <div></div>
+      <div class="panel-section">
+        <div class="panel-title">System Status</div>
+        <div class="status-row">
+          <span>High Beam Detected</span>
+          <span class="status-value off" id="status-highbeam">OFF</span>
         </div>
-        <div style="font-size: 0.7em; color: var(--text-dim); margin-top: 10px; text-align: center;">
-          Simulator mode buttons (DEBUG_LDR_MODE)
+        <div class="status-row">
+          <span>Spotlights Enabled</span>
+          <span class="status-value off" id="status-enabled">NO</span>
+        </div>
+        <div class="status-row">
+          <span>Driver Output</span>
+          <span class="status-value off" id="status-driver">OFF</span>
+        </div>
+        <div class="status-row">
+          <span>Flash Count</span>
+          <span class="status-value" id="status-flash">0</span>
+        </div>
+        <div class="status-row">
+          <span>CPU Cycles</span>
+          <span class="status-value" id="status-cycles">0</span>
         </div>
       </div>
 
-      <!-- Serial Monitor -->
-      <div class="panel" style="flex: 1;">
-        <div class="panel-title">Serial Monitor (9600 baud)</div>
+      <div class="panel-section" style="flex: 1; min-height: 150px;">
+        <div class="panel-title">Serial Monitor (9600)</div>
         <div class="serial-output" id="serial-output"></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Instructions</div>
+        <div style="font-size: 0.7em; color: #888; line-height: 1.4;">
+          1. Click <b>Start</b> to begin simulation<br>
+          2. Slide current to ~4A (high beam ON)<br>
+          3. Quickly slide to 0A then back (flash)<br>
+          4. Double-flash toggles spotlights<br>
+          5. Click the stalk to simulate switch
+        </div>
       </div>
     </div>
   </div>

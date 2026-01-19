@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "avr8js": "^0.18.0"
+    "avr8js": "^0.18.0",
+    "@wokwi/elements": "^0.48.3"
   },
   "devDependencies": {
     "vite": "^5.0.0"
