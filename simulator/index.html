@@ -3,812 +3,381 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KNIGHTDRIVER Simulator</title>
+  <title>KNIGHTDRIVER</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #09090b;
-      --card: #18181b;
-      --card-hover: #27272a;
-      --border: #27272a;
-      --border-subtle: #3f3f46;
-      --text: #fafafa;
-      --text-muted: #a1a1aa;
-      --text-subtle: #71717a;
-      --accent: #22c55e;
-      --accent-muted: #166534;
-      --warning: #eab308;
-      --danger: #ef4444;
-      --blue: #3b82f6;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      line-height: 1.5;
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #000;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
     }
 
-    /* Header */
-    .header {
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-      background: var(--card);
-    }
-
-    .header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-
-    .controls {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn {
-      background: var(--card-hover);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.15s ease;
-    }
-
-    .btn:hover:not(:disabled) {
-      background: var(--border-subtle);
-      border-color: var(--border-subtle);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #000;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #16a34a;
-      border-color: #16a34a;
-    }
-
-    /* Layout */
-    .workspace {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      min-height: calc(100vh - 65px);
-    }
-
-    .main-area {
-      padding: 24px;
-      overflow: auto;
-    }
-
-    /* Circuit Grid */
-    .circuit-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      max-width: 900px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      transition: border-color 0.15s ease;
-    }
-
-    .card:hover {
-      border-color: var(--border-subtle);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .card-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--card-hover);
-    }
-
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .card-subtitle {
-      font-size: 12px;
-      color: var(--text-subtle);
-    }
-
-    /* Arduino Card */
-    .arduino-card {
-      grid-column: span 1;
-      grid-row: span 2;
-    }
-
-    .arduino-board {
-      background: #0d47a1;
-      border-radius: 8px;
-      padding: 12px;
+    .scene {
       position: relative;
-      aspect-ratio: 1;
-      max-width: 200px;
-      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, #0a0a12 0%, #12121a 100%);
+      overflow: hidden;
     }
 
-    .arduino-chip {
-      background: #1a1a1a;
-      width: 60%;
-      height: 30%;
-      margin: 20% auto;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      color: #666;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .arduino-pins {
+    /* Road/horizon view */
+    .road {
       position: absolute;
-      display: flex;
-      gap: 4px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 55%;
+      background: linear-gradient(to bottom, #1a1a1a 0%, #0d0d0d 100%);
+      perspective: 800px;
     }
 
-    .arduino-pins.top { top: 4px; left: 20%; }
-    .arduino-pins.bottom { bottom: 4px; left: 20%; }
-
-    .pin {
-      width: 6px;
-      height: 12px;
-      background: #ffd54f;
-      border-radius: 1px;
+    .road-surface {
+      position: absolute;
+      bottom: 0;
+      left: -50%;
+      right: -50%;
+      height: 100%;
+      background: linear-gradient(to bottom,
+        transparent 0%,
+        #1a1a1a 20%,
+        #222 100%
+      );
+      transform: rotateX(60deg);
+      transform-origin: bottom center;
     }
 
-    /* LCD Card */
-    .lcd-display {
-      background: #1a472a;
-      border-radius: 8px;
-      padding: 16px;
-      font-family: 'JetBrains Mono', monospace;
+    .road-lines {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      height: 100%;
+      transform: translateX(-50%);
+      background: repeating-linear-gradient(
+        to top,
+        transparent 0px,
+        transparent 40px,
+        #444 40px,
+        #444 80px
+      );
+      opacity: 0.3;
     }
 
-    .lcd-screen {
-      background: #0f2d1a;
-      border-radius: 4px;
-      padding: 12px;
-      color: #4ade80;
-      font-size: 14px;
-      line-height: 1.6;
-      text-shadow: 0 0 8px #4ade80;
+    /* Light beams */
+    .light-beam {
+      position: absolute;
+      bottom: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
     }
 
-    /* High Beam Card - Line Art */
-    .highbeam-card {
-      text-align: center;
+    .highbeam-left, .highbeam-right {
+      width: 45%;
+      height: 90%;
+      opacity: 0;
+    }
+
+    .highbeam-left {
+      left: 5%;
+      background: radial-gradient(ellipse 80% 100% at 50% 100%,
+        rgba(255, 250, 220, 0.15) 0%,
+        rgba(255, 250, 220, 0.05) 40%,
+        transparent 70%
+      );
+    }
+
+    .highbeam-right {
+      right: 5%;
+      background: radial-gradient(ellipse 80% 100% at 50% 100%,
+        rgba(255, 250, 220, 0.15) 0%,
+        rgba(255, 250, 220, 0.05) 40%,
+        transparent 70%
+      );
+    }
+
+    .highbeam-left.on, .highbeam-right.on {
+      opacity: 1;
+    }
+
+    /* Spotlights - brighter, longer throw */
+    .spotlight-left, .spotlight-right {
+      width: 35%;
+      height: 100%;
+      opacity: 0;
+    }
+
+    .spotlight-left {
+      left: 15%;
+      background: radial-gradient(ellipse 60% 120% at 50% 100%,
+        rgba(255, 255, 240, 0.4) 0%,
+        rgba(255, 255, 220, 0.2) 30%,
+        rgba(255, 250, 200, 0.05) 60%,
+        transparent 80%
+      );
+    }
+
+    .spotlight-right {
+      right: 15%;
+      background: radial-gradient(ellipse 60% 120% at 50% 100%,
+        rgba(255, 255, 240, 0.4) 0%,
+        rgba(255, 255, 220, 0.2) 30%,
+        rgba(255, 250, 200, 0.05) 60%,
+        transparent 80%
+      );
+    }
+
+    .spotlight-left.on, .spotlight-right.on {
+      opacity: 1;
+    }
+
+    /* Dashboard */
+    .dashboard {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 200px;
+      background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
+      border-top: 1px solid #333;
+    }
+
+    /* Stalk control */
+    .stalk-area {
+      position: absolute;
+      left: 60px;
+      bottom: 40px;
+      width: 180px;
+      height: 160px;
     }
 
     .stalk-svg {
       width: 100%;
-      max-width: 160px;
-      height: 140px;
+      height: 100%;
       cursor: pointer;
-      margin: 0 auto;
-      display: block;
     }
 
     .stalk-svg:hover .line-art {
-      stroke: #fff;
+      stroke: #888;
     }
 
-    .stalk-svg.active .stalk-lever {
-      transform: rotate(-20deg);
-      transform-origin: 80px 110px;
+    .stalk-svg.active .stalk-group {
+      transform: rotate(-15deg);
+      transform-origin: 90px 140px;
     }
 
     .line-art {
       fill: none;
-      stroke: #71717a;
-      stroke-width: 1.5;
+      stroke: #555;
+      stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
-      transition: stroke 0.15s ease;
-    }
-
-    .beam-indicator {
-      margin-top: 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      background: var(--card-hover);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .beam-indicator .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-subtle);
-    }
-
-    .beam-indicator.on .dot {
-      background: var(--blue);
-      box-shadow: 0 0 12px var(--blue);
-    }
-
-    /* Spotlight Card - Line Art */
-    .spotlight-card {
-      text-align: center;
-    }
-
-    .spotlights-container {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin-bottom: 12px;
-    }
-
-    .spotlight-svg {
-      width: 80px;
-      height: 100px;
-    }
-
-    .spotlight-svg .line-art {
-      stroke: #71717a;
-    }
-
-    .spotlight-svg.on .line-art {
-      stroke: #fbbf24;
-    }
-
-    .spotlight-svg.on .beam-rays {
-      opacity: 1;
-      stroke: #fbbf24;
-    }
-
-    .beam-rays {
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .spotlight-label {
-      font-size: 11px;
-      color: var(--text-subtle);
-      margin-top: 4px;
-    }
-
-    /* Sensor Card */
-    .sensor-reading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .sensor-value {
-      font-size: 32px;
-      font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--accent);
-    }
-
-    .sensor-adc {
-      font-size: 12px;
-      color: var(--text-subtle);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Driver Card */
-    .driver-card .card-body {
-      text-align: center;
-    }
-
-    .driver-status {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .driver-status.on {
-      color: var(--accent);
-    }
-
-    .driver-status.off {
-      color: var(--text-subtle);
-    }
-
-    /* LED Indicators */
-    .led-row {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin-top: 12px;
-    }
-
-    .led-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .led-circle {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #333;
-      border: 2px solid #444;
       transition: all 0.15s ease;
     }
 
-    .led-circle.red.on {
-      background: #ef4444;
-      box-shadow: 0 0 16px #ef4444;
+    /* Status display */
+    .status-area {
+      position: absolute;
+      right: 40px;
+      bottom: 50px;
+      text-align: right;
     }
 
-    .led-circle.yellow.on {
-      background: #eab308;
-      box-shadow: 0 0 16px #eab308;
-    }
-
-    .led-label {
-      font-size: 10px;
-      color: var(--text-subtle);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      background: var(--card);
-      border-left: 1px solid var(--border);
-      padding: 20px;
+    .status-item {
       display: flex;
-      flex-direction: column;
-      gap: 16px;
-      overflow-y: auto;
-    }
-
-    .sidebar-section {
-      background: var(--bg);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .sidebar-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 12px;
-    }
-
-    /* Slider */
-    .slider-group {
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
       margin-bottom: 16px;
     }
 
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .slider-label {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .slider-value {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--accent);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    input[type="range"] {
-      width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      background: var(--border);
-      outline: none;
-      -webkit-appearance: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      transition: transform 0.15s ease;
-    }
-
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.1);
-    }
-
-    /* Status Grid */
-    .status-grid {
-      display: grid;
-      gap: 8px;
-    }
-
-    .status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .status-row:last-child {
-      border-bottom: none;
-    }
-
     .status-label {
-      font-size: 13px;
-      color: var(--text-muted);
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
 
-    .status-value {
-      font-size: 13px;
-      font-weight: 500;
-      font-family: 'JetBrains Mono', monospace;
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #333;
+      border: 1px solid #444;
+      transition: all 0.15s ease;
     }
 
-    .status-value.on { color: var(--accent); }
-    .status-value.off { color: var(--text-subtle); }
-
-    /* Serial Monitor */
-    .serial-output {
-      background: #000;
-      border-radius: 6px;
-      padding: 12px;
-      height: 180px;
-      overflow-y: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: #4ade80;
+    .status-indicator.on {
+      background: #4ade80;
+      box-shadow: 0 0 12px #4ade80;
     }
 
-    .serial-line {
-      margin: 2px 0;
-      white-space: pre-wrap;
+    .status-indicator.blue.on {
+      background: #60a5fa;
+      box-shadow: 0 0 12px #60a5fa;
+    }
+
+    .status-indicator.amber.on {
+      background: #fbbf24;
+      box-shadow: 0 0 12px #fbbf24;
     }
 
     /* Instructions */
     .instructions {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: #444;
       font-size: 12px;
-      color: var(--text-subtle);
-      line-height: 1.6;
     }
 
     .instructions kbd {
       display: inline-block;
-      padding: 2px 6px;
-      background: var(--card-hover);
-      border: 1px solid var(--border);
+      padding: 2px 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
       border-radius: 4px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
+      font-family: inherit;
+      margin: 0 2px;
     }
 
-    /* Wokwi elements hidden but functional */
-    .wokwi-hidden {
+    /* Title */
+    .title {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      letter-spacing: 0.1em;
+    }
+
+    /* Flash indicator */
+    .flash-count {
+      position: absolute;
+      left: 50%;
+      bottom: 220px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .flash-count.visible {
+      opacity: 1;
+    }
+
+    .flash-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #333;
+      border: 1px solid #444;
+      transition: all 0.15s ease;
+    }
+
+    .flash-dot.active {
+      background: #fbbf24;
+      box-shadow: 0 0 12px #fbbf24;
+    }
+
+    /* Controls hint */
+    .controls-hint {
+      position: absolute;
+      left: 60px;
+      bottom: 10px;
+      font-size: 11px;
+      color: #444;
+    }
+
+    /* Wokwi elements hidden */
+    .hidden {
       position: absolute;
       opacity: 0;
       pointer-events: none;
       width: 0;
       height: 0;
-      overflow: hidden;
     }
   </style>
 </head>
 <body>
-  <header class="header">
-    <h1>KNIGHTDRIVER Simulator</h1>
-    <div class="controls">
-      <button class="btn btn-primary" id="btn-start">Start</button>
-      <button class="btn" id="btn-stop" disabled>Stop</button>
-      <button class="btn" id="btn-reset">Reset</button>
+  <div class="scene">
+    <!-- Night sky/horizon -->
+    <div class="road">
+      <div class="road-surface"></div>
+      <div class="road-lines"></div>
+
+      <!-- Light beams -->
+      <div class="light-beam highbeam-left" id="highbeam-left"></div>
+      <div class="light-beam highbeam-right" id="highbeam-right"></div>
+      <div class="light-beam spotlight-left" id="spotlight-left"></div>
+      <div class="light-beam spotlight-right" id="spotlight-right"></div>
     </div>
-  </header>
 
-  <div class="workspace">
-    <main class="main-area">
-      <div class="circuit-grid">
-        <!-- Arduino -->
-        <div class="card arduino-card">
-          <div class="card-header">
-            <div class="card-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="4" y="4" width="16" height="16" rx="2"/>
-                <path d="M9 9h6M9 12h6M9 15h6"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">Arduino Uno</div>
-              <div class="card-subtitle">ATmega328P</div>
-            </div>
-          </div>
-          <div class="arduino-board">
-            <div class="arduino-pins top">
-              <div class="pin"></div><div class="pin"></div><div class="pin"></div>
-              <div class="pin"></div><div class="pin"></div><div class="pin"></div>
-            </div>
-            <div class="arduino-chip">ATmega328P</div>
-            <div class="arduino-pins bottom">
-              <div class="pin"></div><div class="pin"></div><div class="pin"></div>
-              <div class="pin"></div><div class="pin"></div><div class="pin"></div>
-            </div>
-          </div>
-          <div class="led-row">
-            <div class="led-item">
-              <div class="led-circle red" id="led-visual-13"></div>
-              <span class="led-label">D13</span>
-            </div>
-            <div class="led-item">
-              <div class="led-circle yellow" id="led-visual-11"></div>
-              <span class="led-label">D11</span>
-            </div>
-          </div>
-        </div>
+    <!-- Flash indicator -->
+    <div class="flash-count" id="flash-count">
+      <div class="flash-dot" id="flash-dot-1"></div>
+      <div class="flash-dot" id="flash-dot-2"></div>
+    </div>
 
-        <!-- LCD Display -->
-        <div class="card" style="grid-column: span 2;">
-          <div class="card-header">
-            <div class="card-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="6" width="20" height="12" rx="2"/>
-                <path d="M6 10h12"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">LCD Display</div>
-              <div class="card-subtitle">16x2 HD44780</div>
-            </div>
-          </div>
-          <div class="lcd-display">
-            <div class="lcd-screen" id="lcd-text">  KNIGHTDRIVER
-    Ready...</div>
-          </div>
-        </div>
+    <!-- Dashboard -->
+    <div class="dashboard">
+      <!-- High beam stalk -->
+      <div class="stalk-area">
+        <svg class="stalk-svg" id="highbeam-stalk" viewBox="0 0 180 160">
+          <!-- Column base -->
+          <ellipse class="line-art" cx="90" cy="145" rx="50" ry="12"/>
+          <path class="line-art" d="M40 145 L40 130 Q40 115 55 110 L125 110 Q140 115 140 130 L140 145"/>
 
-        <!-- High Beam Stalk -->
-        <div class="card highbeam-card">
-          <div class="card-header">
-            <div class="card-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">High Beam</div>
-              <div class="card-subtitle">Turn signal stalk</div>
-            </div>
-          </div>
-          <svg class="stalk-svg" id="highbeam-stalk" viewBox="0 0 160 140">
-            <!-- Steering column base -->
-            <ellipse class="line-art" cx="80" cy="125" rx="45" ry="12"/>
-            <path class="line-art" d="M35 125 L35 115 Q35 105 45 100 L115 100 Q125 105 125 115 L125 125"/>
-
-            <!-- Stalk lever -->
-            <g class="stalk-lever">
-              <path class="line-art" d="M60 110 L45 50 Q43 40 50 38 L65 35 Q72 33 75 40 L90 100"/>
-              <ellipse class="line-art" cx="57" cy="37" rx="15" ry="8"/>
-              <!-- Grip lines -->
-              <path class="line-art" d="M48 55 L67 50"/>
-              <path class="line-art" d="M50 65 L70 60"/>
-              <path class="line-art" d="M52 75 L73 70"/>
-            </g>
-
-            <!-- High beam symbol on stalk -->
-            <g class="stalk-lever">
-              <circle class="line-art" cx="57" cy="37" r="4" style="stroke-width: 1"/>
-              <path class="line-art" d="M47 37 L42 37 M67 37 L72 37 M57 27 L57 22 M57 47 L57 52" style="stroke-width: 1"/>
-            </g>
-          </svg>
-          <div class="beam-indicator" id="beam-status">
-            <span class="dot"></span>
-            <span>OFF</span>
-          </div>
-        </div>
-
-        <!-- ACS712 Sensor -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-icon" style="background: #7c3aed20; color: #a78bfa;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">Current Sensor</div>
-              <div class="card-subtitle">ACS712-20A</div>
-            </div>
-          </div>
-          <div class="sensor-reading">
-            <div class="sensor-value" id="current-amps">0.0A</div>
-            <div class="sensor-adc" id="current-adc">ADC: 512</div>
-          </div>
-        </div>
-
-        <!-- BTS7960 Driver -->
-        <div class="card driver-card">
-          <div class="card-header">
-            <div class="card-icon" style="background: #f9731620; color: #fb923c;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="8" width="18" height="8" rx="1"/>
-                <path d="M7 8V6M12 8V6M17 8V6M7 16v2M12 16v2M17 16v2"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">Motor Driver</div>
-              <div class="card-subtitle">BTS7960 43A</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="driver-status off" id="driver-state">OFF</div>
-          </div>
-        </div>
-
-        <!-- Spotlights -->
-        <div class="card spotlight-card" style="grid-column: span 3;">
-          <div class="card-header">
-            <div class="card-icon" style="background: #eab30820; color: #fbbf24;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="5"/>
-                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-              </svg>
-            </div>
-            <div>
-              <div class="card-title">Spotlights</div>
-              <div class="card-subtitle">Auxiliary driving lights</div>
-            </div>
-          </div>
-          <div class="spotlights-container">
-            <!-- Left Spotlight -->
-            <div>
-              <svg class="spotlight-svg" id="spotlight-1" viewBox="0 0 80 100">
-                <!-- Housing -->
-                <path class="line-art" d="M15 30 Q15 15 40 15 Q65 15 65 30 L65 75 Q65 85 40 85 Q15 85 15 75 Z"/>
-                <!-- Lens ring -->
-                <ellipse class="line-art" cx="40" cy="45" rx="20" ry="8"/>
-                <!-- Inner lens -->
-                <ellipse class="line-art" cx="40" cy="45" rx="12" ry="5"/>
-                <!-- Mount -->
-                <rect class="line-art" x="30" y="85" width="20" height="10" rx="2"/>
-                <!-- Beam rays (shown when on) -->
-                <g class="beam-rays">
-                  <path d="M40 15 L40 0" stroke-width="2"/>
-                  <path d="M25 20 L15 8" stroke-width="2"/>
-                  <path d="M55 20 L65 8" stroke-width="2"/>
-                </g>
-              </svg>
-              <div class="spotlight-label">LEFT</div>
-            </div>
-            <!-- Right Spotlight -->
-            <div>
-              <svg class="spotlight-svg" id="spotlight-2" viewBox="0 0 80 100">
-                <!-- Housing -->
-                <path class="line-art" d="M15 30 Q15 15 40 15 Q65 15 65 30 L65 75 Q65 85 40 85 Q15 85 15 75 Z"/>
-                <!-- Lens ring -->
-                <ellipse class="line-art" cx="40" cy="45" rx="20" ry="8"/>
-                <!-- Inner lens -->
-                <ellipse class="line-art" cx="40" cy="45" rx="12" ry="5"/>
-                <!-- Mount -->
-                <rect class="line-art" x="30" y="85" width="20" height="10" rx="2"/>
-                <!-- Beam rays (shown when on) -->
-                <g class="beam-rays">
-                  <path d="M40 15 L40 0" stroke-width="2"/>
-                  <path d="M25 20 L15 8" stroke-width="2"/>
-                  <path d="M55 20 L65 8" stroke-width="2"/>
-                </g>
-              </svg>
-              <div class="spotlight-label">RIGHT</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <aside class="sidebar">
-      <div class="sidebar-section">
-        <div class="sidebar-title">Simulation Input</div>
-        <div class="slider-group">
-          <div class="slider-header">
-            <span class="slider-label">High Beam Current</span>
-            <span class="slider-value" id="current-value">0.0A</span>
-          </div>
-          <input type="range" id="current-slider" min="0" max="10" step="0.1" value="0">
-        </div>
-        <p class="instructions">
-          Detection threshold: ~2.3A<br>
-          High beam typically draws 4-8A
-        </p>
+          <!-- Stalk lever -->
+          <g class="stalk-group">
+            <path class="line-art" d="M70 120 L50 45 Q47 30 58 26 L78 22 Q89 18 94 32 L110 105"/>
+            <ellipse class="line-art" cx="68" cy="25" rx="18" ry="10"/>
+            <!-- Grip texture -->
+            <path class="line-art" d="M54 50 L80 42" style="stroke-width: 1"/>
+            <path class="line-art" d="M56 65 L83 57" style="stroke-width: 1"/>
+            <path class="line-art" d="M58 80 L86 72" style="stroke-width: 1"/>
+            <path class="line-art" d="M60 95 L89 87" style="stroke-width: 1"/>
+          </g>
+        </svg>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-title">System Status</div>
-        <div class="status-grid">
-          <div class="status-row">
-            <span class="status-label">High Beam</span>
-            <span class="status-value off" id="status-highbeam">OFF</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">Enabled</span>
-            <span class="status-value off" id="status-enabled">NO</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">Driver</span>
-            <span class="status-value off" id="status-driver">OFF</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">Flash Count</span>
-            <span class="status-value" id="status-flash">0</span>
-          </div>
-          <div class="status-row">
-            <span class="status-label">Cycles</span>
-            <span class="status-value" id="status-cycles">0</span>
-          </div>
+      <div class="controls-hint">Click stalk or press <kbd>H</kbd> · Double-click or <kbd>F</kbd> to flash</div>
+
+      <!-- Status indicators -->
+      <div class="status-area">
+        <div class="status-item">
+          <span class="status-label">High Beam</span>
+          <div class="status-indicator blue" id="status-highbeam"></div>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Spots Enabled</span>
+          <div class="status-indicator" id="status-enabled"></div>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Spots Active</span>
+          <div class="status-indicator amber" id="status-spots"></div>
         </div>
       </div>
+    </div>
 
-      <div class="sidebar-section" style="flex: 1;">
-        <div class="sidebar-title">Serial Monitor</div>
-        <div class="serial-output" id="serial-output"></div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="sidebar-title">Keyboard Shortcuts</div>
-        <p class="instructions">
-          <kbd>Space</kbd> or <kbd>F</kbd> Flash high beam<br>
-          <kbd>H</kbd> Toggle high beam<br>
-          <kbd>S</kbd> Start/Stop<br>
-          <kbd>R</kbd> Reset
-        </p>
-      </div>
-    </aside>
+    <div class="title">KNIGHTDRIVER</div>
+    <div class="instructions">
+      <kbd>H</kbd> toggle high beam · <kbd>F</kbd> flash · double-flash to enable/disable spots
+    </div>
   </div>
 
-  <!-- Hidden wokwi elements for component compatibility -->
-  <div class="wokwi-hidden">
+  <!-- Hidden wokwi elements -->
+  <div class="hidden">
     <wokwi-lcd1602 id="lcd"></wokwi-lcd1602>
     <wokwi-led id="led-13" color="red"></wokwi-led>
     <wokwi-led id="led-11" color="yellow"></wokwi-led>
