@@ -1,24 +1,26 @@
 /*
- * Smart Driving Light Activator for Automotive Spotlights
+ * KNIGHTDRIVER - Smart Automotive Spotlight Controller
  *
- * SAFETY REQUIREMENT: High beam MUST be ON for relay to ever be ON
+ * SAFETY REQUIREMENT: High beam MUST be ON for driver output to ever be ON
  *
  * OPERATION:
- * - High beam OFF = Relay always OFF (safety)
- * - High beam ON = Relay ON by default
- * - Double flash (within 3s) = Toggle relay ON/OFF while high beam is on
- * - When high beam turns back ON, relay resets to ON
+ * - High beam OFF = Driver always OFF (safety)
+ * - High beam ON = Driver ON by default
+ * - Double flash (within 3s) = Toggle driver ON/OFF while high beam is on
+ * - When high beam turns back ON, driver resets to ON
  *
  * USE CASE: Control auxiliary spotlights independently while keeping high beams on
  *
  * Hardware:
- * - Reed relay on digital pin (detects high beam: LOW=off, HIGH=on)
- * - Relay module on digital pin (controls driving lights)
+ * - ACS712 current sensor on A1 (detects high beam current)
+ * - BTS7960 MOSFET driver on D3 (controls driving lights)
+ * - LCD Keypad Shield for display and simulator mode
  */
 
 // ===== CONFIGURATION =====
-#define TEST_MODE true  // Set to false for production use
-#define DEBUG_LDR_MODE true  // true = LDR hand wave demo, false = vehicle mode
+#define TEST_MODE false      // Set to true to simulate high beam toggling every 10s
+#define DEBUG_LDR_MODE false // true = LCD button simulator, false = vehicle mode
+#define USE_HALL_SENSOR true // true = ACS712 current sensor, false = reed switch
 
 // LCD Display support (Arduino LCD Keypad Shield)
 #define USE_LCD true  // true = Use LCD for display, false = Serial only
@@ -46,10 +48,10 @@
   const int BTN_NONE = 1023;
 #else
   // Pin definitions for VEHICLE MODE - REORGANIZED to avoid LCD shield conflicts
-  const int REED_RELAY_PIN = 2;       // Reed relay input - DIGITAL mode only
-  const int HALL_SENSOR_PIN = A1;     // Hall effect current sensor - ANALOG
-  const int RELAY_PIN = 3;            // MOSFET/Relay module output
-  const int RELAY_LED_PIN = 13;       // LED indicator for relay ON (built-in LED)
+  const int REED_SWITCH_PIN = 2;      // Reed switch input - DIGITAL mode only
+  const int HALL_SENSOR_PIN = A1;     // ACS712 current sensor - ANALOG
+  const int DRIVER_PIN = 3;           // BTS7960 RPWM output (spotlight driver)
+  const int DRIVER_LED_PIN = 13;      // LED indicator for driver ON (built-in LED)
   const int FLASH_LED_PIN = 11;       // LED indicator for flash detection
 #endif
 
@@ -57,10 +59,27 @@
 // RS=8, E=9, D4=4, D5=5, D6=6, D7=7, Backlight=10, Buttons=A0
 // FREE PINS: 0, 1 (Serial), 12, A2, A3, A4, A5
 
-// Hall effect sensor settings (only used if USE_HALL_SENSOR = true)
-const int HALL_THRESHOLD_HIGH = 100;  // Analog value above which high beam is considered ON (0-1023)
-const int HALL_THRESHOLD_LOW = 50;    // Analog value below which high beam is considered OFF (hysteresis)
-// Adjust these based on your sensor: ACS712 typically outputs ~512 at 0A, increases with current
+// ===== ACS712 CURRENT SENSOR CONFIGURATION =====
+// The ACS712 outputs VCC/2 (2.5V = ~512 ADC) at 0A current
+// Current flow increases voltage above 512 (positive) or below 512 (negative)
+//
+// ACS712 Variants (set sensitivity based on your module):
+//   ACS712-05B: 185 mV/A (best for <5A loads like single bulbs)
+//   ACS712-20A: 100 mV/A (good for typical high beam circuits)
+//   ACS712-30A:  66 mV/A (for high-current applications)
+//
+// Threshold calculation for 20A variant sensing ~4A high beam:
+//   4A * 100mV/A = 400mV increase from 2.5V baseline
+//   2.5V + 0.4V = 2.9V = ~593 ADC value
+//   Using 560 threshold with hysteresis at 530 for reliable detection
+
+const int ACS712_ZERO_POINT = 512;    // ADC reading at 0 Amps (VCC/2)
+const int HALL_THRESHOLD_HIGH = 560;  // ADC value to detect HIGH beam ON (~2A+ current)
+const int HALL_THRESHOLD_LOW = 530;   // Hysteresis threshold for OFF (prevents jitter)
+
+// Sensitivity tuning: Increase thresholds if getting false triggers
+// Decrease thresholds if high beam isn't being detected
+// Monitor serial output to see actual ADC readings for calibration
 // =========================
 
 // Debouncing and timing
@@ -71,7 +90,7 @@ const unsigned long MAX_FLASH_DURATION = 2000; // Maximum flash duration (2s)
 const unsigned long DIP_DURATION = 60000;     // 60 seconds for dip auto-resume
 
 // LED flash timing
-const unsigned long RELAY_LED_INTERVAL = 150;  // Rapid flash interval (ms)
+const unsigned long DRIVER_LED_INTERVAL = 150;  // Rapid flash interval (ms)
 const unsigned long FLASH_LED_DURATION = 3000; // Flash LED on for 3 seconds
 const unsigned long FLASH_LED_INTERVAL = 100;  // Flash LED blink interval (ms)
 
@@ -135,13 +154,13 @@ const unsigned long FLASH_LED_INTERVAL = 100;  // Flash LED blink interval (ms)
   unsigned long lastFlashOffTime = 0;
   unsigned long lastFlashOnTime = 0;
 
-  // Relay control
-  bool relayEnabled = false;
-  bool relayState = false;
+  // Driver control
+  bool driverEnabled = false;
+  bool driverState = false;
 
   // LED indicators
-  bool relayLedState = false;
-  unsigned long lastRelayLedToggle = 0;
+  bool driverLedState = false;
+  unsigned long lastDriverLedToggle = 0;
   bool flashLedActive = false;
   bool flashLedState = false;
   unsigned long flashLedStartTime = 0;
@@ -216,13 +235,13 @@ void setup() {
 #else
   // Vehicle Mode
   #if !USE_HALL_SENSOR
-    pinMode(REED_RELAY_PIN, INPUT);
+    pinMode(REED_SWITCH_PIN, INPUT);
   #endif
-  pinMode(RELAY_PIN, OUTPUT);
-  pinMode(RELAY_LED_PIN, OUTPUT);
+  pinMode(DRIVER_PIN, OUTPUT);
+  pinMode(DRIVER_LED_PIN, OUTPUT);
   pinMode(FLASH_LED_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
-  digitalWrite(RELAY_LED_PIN, LOW);
+  digitalWrite(DRIVER_PIN, LOW);
+  digitalWrite(DRIVER_LED_PIN, LOW);
   digitalWrite(FLASH_LED_PIN, LOW);
 #endif
 
@@ -386,7 +405,7 @@ void setup() {
   Serial.println("Smart Driving Light Activator for Spotlights");
   Serial.println("Default: Spotlights OFF");
   Serial.println("Double-flash high beam to toggle ON/OFF");
-  Serial.println("LED indicators: Pin 13 (relay), Pin 11 (flash)");
+  Serial.println("LED indicators: Pin 13 (driver), Pin 11 (flash)");
 
   #if USE_HALL_SENSOR
     Serial.println("");
@@ -394,7 +413,7 @@ void setup() {
     Serial.print("Threshold HIGH: "); Serial.println(HALL_THRESHOLD_HIGH);
     Serial.print("Threshold LOW: "); Serial.println(HALL_THRESHOLD_LOW);
   #else
-    Serial.println("Sensor: Reed Relay (Digital on Pin 2)");
+    Serial.println("Sensor: Reed Switch (Digital on Pin 2)");
   #endif
 
   #if USE_LCD
@@ -511,15 +530,32 @@ void loop() {
     // Production mode: Read actual sensor
     #if USE_HALL_SENSOR
       int sensorValue = analogRead(HALL_SENSOR_PIN);
+
+      // Debug output for calibration (every state change)
+      static int lastSensorValue = 0;
+      if (abs(sensorValue - lastSensorValue) > 10) {
+        Serial.print("ACS712 ADC: ");
+        Serial.print(sensorValue);
+        Serial.print(" (zero=");
+        Serial.print(ACS712_ZERO_POINT);
+        Serial.print(", threshHi=");
+        Serial.print(HALL_THRESHOLD_HIGH);
+        Serial.print(", threshLo=");
+        Serial.print(HALL_THRESHOLD_LOW);
+        Serial.println(")");
+        lastSensorValue = sensorValue;
+      }
+
+      // Hysteresis logic for clean switching
       if (sensorValue >= HALL_THRESHOLD_HIGH && !highBeamState) {
         reading = true;
       } else if (sensorValue <= HALL_THRESHOLD_LOW && highBeamState) {
         reading = false;
       } else {
-        reading = highBeamState;
+        reading = highBeamState;  // Hold previous state
       }
     #else
-      reading = digitalRead(REED_RELAY_PIN);
+      reading = digitalRead(REED_SWITCH_PIN);
     #endif
   #endif
 
@@ -543,8 +579,8 @@ void loop() {
         handleHighBeamOff();
       }
 
-      // Update relay based on current mode
-      updateRelay();
+      // Update driver based on current mode
+      updateDriver();
     }
   }
 
@@ -556,7 +592,7 @@ void loop() {
   }
 
   // Update LED indicators
-  updateRelayLed();
+  updateDriverLed();
   updateFlashLed();
 
   // Update LCD display
@@ -729,7 +765,7 @@ void updateStatusLed() {
   // Rapidly flash LED when spotlights are ON
   if (spotlightsOn) {
     unsigned long currentTime = millis();
-    if (currentTime - lastStatusLedToggle >= RELAY_LED_INTERVAL) {
+    if (currentTime - lastStatusLedToggle >= DRIVER_LED_INTERVAL) {
       statusLedState = !statusLedState;
       digitalWrite(STATUS_LED_PIN, statusLedState ? HIGH : LOW);
       lastStatusLedToggle = currentTime;
@@ -794,10 +830,10 @@ void handleHighBeamOn() {
         unsigned long timeSinceFirst = currentTime - firstFlashTime;
 
         if (timeSinceFirst <= FLASH_TIMEOUT) {
-          // Second flash detected - TOGGLE relay!
+          // Second flash detected - TOGGLE driver!
           flashCount = 2;
           Serial.println("Flash 2 detected - DOUBLE FLASH!");
-          toggleRelay();
+          toggleDriver();
           resetFlashDetection();
         } else {
           // Timeout expired, treat as new first flash
@@ -828,29 +864,29 @@ void handleHighBeamOff() {
   }
 }
 
-void toggleRelay() {
-  // Toggle the relay enabled state
-  relayEnabled = !relayEnabled;
-  Serial.print("Relay toggled: ");
-  Serial.println(relayEnabled ? "ENABLED" : "DISABLED");
+void toggleDriver() {
+  // Toggle the driver enabled state
+  driverEnabled = !driverEnabled;
+  Serial.print("Driver toggled: ");
+  Serial.println(driverEnabled ? "ENABLED" : "DISABLED");
 }
 
-void updateRelay() {
-  bool newRelayState = false;
+void updateDriver() {
+  bool newDriverState = false;
 
-  // SAFETY: Relay can only be ON if high beam is ON
-  if (highBeamState && relayEnabled) {
-    newRelayState = true;
+  // SAFETY: Driver can only be ON if high beam is ON
+  if (highBeamState && driverEnabled) {
+    newDriverState = true;
   } else {
-    newRelayState = false;
+    newDriverState = false;
   }
 
-  // Update relay if state changed
-  if (newRelayState != relayState) {
-    relayState = newRelayState;
-    digitalWrite(RELAY_PIN, relayState ? HIGH : LOW);
-    Serial.print("Relay output: ");
-    Serial.println(relayState ? "ON" : "OFF");
+  // Update driver if state changed
+  if (newDriverState != driverState) {
+    driverState = newDriverState;
+    digitalWrite(DRIVER_PIN, driverState ? HIGH : LOW);
+    Serial.print("Driver output: ");
+    Serial.println(driverState ? "ON" : "OFF");
   }
 }
 
@@ -860,20 +896,20 @@ void resetFlashDetection() {
   lastFlashOffTime = 0;
 }
 
-void updateRelayLed() {
-  // Rapidly flash LED when relay is ON
-  if (relayState) {
+void updateDriverLed() {
+  // Rapidly flash LED when driver is ON
+  if (driverState) {
     unsigned long currentTime = millis();
-    if (currentTime - lastRelayLedToggle >= RELAY_LED_INTERVAL) {
-      relayLedState = !relayLedState;
-      digitalWrite(RELAY_LED_PIN, relayLedState ? HIGH : LOW);
-      lastRelayLedToggle = currentTime;
+    if (currentTime - lastDriverLedToggle >= DRIVER_LED_INTERVAL) {
+      driverLedState = !driverLedState;
+      digitalWrite(DRIVER_LED_PIN, driverLedState ? HIGH : LOW);
+      lastDriverLedToggle = currentTime;
     }
   } else {
-    // Relay OFF - turn LED off
-    if (relayLedState) {
-      relayLedState = false;
-      digitalWrite(RELAY_LED_PIN, LOW);
+    // Driver OFF - turn LED off
+    if (driverLedState) {
+      driverLedState = false;
+      digitalWrite(DRIVER_LED_PIN, LOW);
     }
   }
 }
@@ -1121,7 +1157,7 @@ void updateLcd() {
     lcd.print("HB:-- ");
   }
 
-  if (relayEnabled) {
+  if (driverEnabled) {
     lcd.print("SP:EN");
   } else {
     lcd.print("SP:--");
@@ -1132,9 +1168,9 @@ void updateLcd() {
   lcd.print("                ");  // Clear line
   lcd.setCursor(0, 1);
 
-  if (relayState) {
+  if (driverState) {
     lcd.print("LIGHTS ON!");
-  } else if (relayEnabled && !highBeamState) {
+  } else if (driverEnabled && !highBeamState) {
     lcd.print("Wait HB...");
   } else if (flashCount > 0) {
     lcd.print("Flash ");

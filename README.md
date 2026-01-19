@@ -109,8 +109,9 @@ open dashboard_simulator.html
 ### Required Components
 1. **Arduino Uno R3** (or compatible)
 2. **LCD Keypad Shield** (16x2 with 5 buttons)
-3. **BTS7960 H-Bridge Module** (43A motor driver for spotlight control)
-4. **Automotive Spotlights** (auxiliary/driving lights)
+3. **ACS712 Current Sensor Module** (20A variant recommended)
+4. **BTS7960 H-Bridge Module** (43A motor driver for spotlight control)
+5. **Automotive Spotlights** (auxiliary/driving lights)
 
 ### Pin Assignments
 
@@ -121,12 +122,47 @@ open dashboard_simulator.html
 - Backlight: Pin 10 (PWM)
 - Buttons: A0 (analog)
 
-**Free Pins for Vehicle Mode:**
-- Pin 2: Reed relay input (high beam detection)
+**Vehicle Mode Pins:**
+- **A1: ACS712 current sensor output** (analog - high beam detection)
+- Pin 2: Reed switch input (alternative to ACS712)
 - Pin 3: BTS7960 RPWM output (spotlight control)
 - Pin 11: Flash LED indicator
 - Pin 13: Status LED (built-in)
-- A1: Hall effect sensor (optional current sensing)
+
+### ACS712 Current Sensor Wiring
+
+The ACS712 detects when current flows through the high beam circuit:
+
+```
+                    ACS712-20A Module
+                   ┌─────────────────┐
+    Arduino 5V ────┤ VCC             │
+    Arduino GND ───┤ GND             │
+    Arduino A1 ────┤ OUT             │  (Analog output ~2.5V at 0A)
+                   │                 │
+    HIGH BEAM ═════┤ IP+         IP- ├═════ HIGH BEAM
+    WIRE (IN)      │   (pass-through)│      WIRE (OUT)
+                   └─────────────────┘
+```
+
+**Installation:**
+1. Identify one of the high beam wires (positive side)
+2. Cut the wire and connect both ends to IP+ and IP-
+3. Current flows through the sensor without interruption
+4. Sensor outputs analog voltage proportional to current
+
+**ACS712 Variants:**
+| Model | Range | Sensitivity | Best For |
+|-------|-------|-------------|----------|
+| ACS712-05B | ±5A | 185 mV/A | Single bulb |
+| ACS712-20A | ±20A | 100 mV/A | High beam circuit (recommended) |
+| ACS712-30A | ±30A | 66 mV/A | High-current applications |
+
+**Calibration:**
+- At 0A (high beam OFF): Output ≈ 2.5V (ADC ~512)
+- Current flowing (ON): Output increases above 2.5V
+- Default threshold: 560 ADC (~2A detection)
+- Monitor Serial output to tune thresholds for your vehicle
 
 ### BTS7960 Wiring
 
@@ -149,7 +185,7 @@ BTS7960 L_EN → +5V (enable left side)
 - ✅ 43A continuous current capacity
 - ✅ PWM dimming support (future feature)
 - ✅ Overcurrent/overtemperature protection
-- ✅ Silent operation (no relay clicking)
+- ✅ Silent solid-state operation
 - ✅ Fast switching with no mechanical wear
 
 ---
@@ -159,9 +195,9 @@ BTS7960 L_EN → +5V (enable left side)
 ### 1. Upload to Arduino
 
 ```bash
-cd ~/Projects/knightdriver
-arduino-cli compile --fqbn arduino:avr:uno smart_driving_light
-arduino-cli upload -p /dev/tty.usbserial-1430 --fqbn arduino:avr:uno smart_driving_light
+cd ~/Projects/knightdriver/firmware
+arduino-cli compile --fqbn arduino:avr:uno knightdriver
+arduino-cli upload -p /dev/tty.usbserial-1430 --fqbn arduino:avr:uno knightdriver
 ```
 
 ### 2. Test with Simulator
@@ -170,17 +206,20 @@ Open `dashboard_simulator.html` in Chrome/Edge (Web Serial API required)
 
 ### 3. Configure Modes
 
-Edit `smart_driving_light.ino`:
+Edit `firmware/knightdriver/knightdriver.ino`:
 
 ```cpp
-#define TEST_MODE false          // Set true for testing
-#define DEBUG_LDR_MODE true      // Simulator mode (buttons)
+#define TEST_MODE false          // Set true to simulate high beam toggling
+#define DEBUG_LDR_MODE false     // false = vehicle mode, true = simulator
+#define USE_HALL_SENSOR true     // true = ACS712, false = reed switch
 #define USE_LCD true             // Enable LCD display
 ```
 
 **Modes:**
-- `DEBUG_LDR_MODE = true`: Simulator mode (button controls)
-- `DEBUG_LDR_MODE = false`: Vehicle mode (reed relay/hall sensor)
+- `DEBUG_LDR_MODE = true`: Simulator mode (LCD keypad button controls)
+- `DEBUG_LDR_MODE = false`: Vehicle mode (uses real sensors)
+- `USE_HALL_SENSOR = true`: ACS712 current sensor on A1
+- `USE_HALL_SENSOR = false`: Reed switch on D2
 
 ---
 
@@ -233,12 +272,58 @@ const int SCAN_SPEED = 80;  // ms between scan steps (80 = smooth)
 
 ```
 knightdriver/
-├── smart_driving_light/
-│   └── smart_driving_light.ino    # Main Arduino sketch
-├── dashboard_simulator.html        # Web-based simulator
-├── blink_test/
-│   └── blink_test.ino             # Hardware test sketch
-└── README.md                       # This file
+├── firmware/
+│   ├── knightdriver/
+│   │   └── knightdriver.ino    # Main Arduino sketch
+│   └── blink_test/
+│       └── blink_test.ino             # Hardware test sketch
+├── simulator/                          # AVR8JS web simulator
+│   ├── src/
+│   │   └── main.js                    # Simulator logic
+│   ├── public/
+│   │   └── firmware/                  # Compiled .hex files
+│   ├── index.html                     # Simulator UI
+│   ├── package.json
+│   └── vercel.json                    # Vercel deployment config
+├── .github/
+│   └── workflows/
+│       └── deploy-simulator.yml       # Vercel CI/CD
+├── dashboard_simulator.html           # Serial dashboard (legacy)
+└── README.md                          # This file
+```
+
+---
+
+## 🔌 AVR8JS Simulator
+
+Test the firmware in your browser with our custom AVR8JS-based simulator!
+
+**Live Simulator:** [drksci-labs-knightdriver.vercel.app](https://drksci-labs-knightdriver.vercel.app)
+
+### Features
+- Real AVR ATmega328P emulation via [avr8js](https://github.com/wokwi/avr8js)
+- Virtual LCD display with Knight Rider animation
+- ACS712 current sensor simulation (adjustable slider)
+- LCD Keypad Shield button simulation
+- Live serial monitor output
+- LED and driver state visualization
+
+### Run Locally
+
+```bash
+cd simulator
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:3000 in your browser.
+
+### Compile Firmware for Simulator
+
+```bash
+cd firmware
+arduino-cli compile -e --fqbn arduino:avr:uno knightdriver
+cp knightdriver/build/arduino.avr.uno/knightdriver.ino.hex ../simulator/public/firmware/knightdriver.hex
 ```
 
 ---
@@ -299,7 +384,7 @@ MIT License - Feel free to modify and use in your projects!
 
 **Created by:** DRKSCI Labs
 **Project:** KNIGHTDRIVER
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ---
 

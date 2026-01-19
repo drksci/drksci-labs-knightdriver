@@ -1,0 +1,80 @@
+name: Deploy Simulator to Vercel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'simulator/**'
+      - '.github/workflows/deploy-simulator.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'simulator/**'
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install Vercel CLI
+        run: pnpm add -g vercel@latest
+
+      - name: Install dependencies
+        working-directory: simulator
+        run: pnpm install
+
+      - name: Build simulator
+        working-directory: simulator
+        run: pnpm build
+
+      - name: Pull Vercel Environment (Production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: simulator
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Pull Vercel Environment (Preview)
+        if: github.event_name == 'pull_request'
+        working-directory: simulator
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build with Vercel (Production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: simulator
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build with Vercel (Preview)
+        if: github.event_name == 'pull_request'
+        working-directory: simulator
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (Production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: simulator
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (Preview)
+        if: github.event_name == 'pull_request'
+        working-directory: simulator
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Preview URL: $url"
+          echo "PREVIEW_URL=$url" >> $GITHUB_ENV
