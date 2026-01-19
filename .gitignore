@@ -1,0 +1,22 @@
+# Arduino build artifacts
+*.hex
+*.elf
+*.eep
+*.lss
+*.map
+*.sym
+
+# IDE files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Build directories
+build/
+*.build/
+
+# Temporary files
+*.tmp
+*.bak
+*.cache

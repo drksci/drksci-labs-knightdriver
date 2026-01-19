@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNIGHTDRIVER v1.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0014;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Scanlines effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .terminal {
+            max-width: 800px;
+            width: 100%;
+            border: 2px solid #ff00ff;
+            background: rgba(10, 0, 20, 0.95);
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 1px solid #00ffff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 1.8em;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+            letter-spacing: 4px;
+        }
+
+        .subtitle {
+            font-size: 0.8em;
+            color: #00ffff;
+            margin-top: 5px;
+        }
+
+        .display {
+            border: 1px solid #555;
+            background: #000;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            line-height: 1.8;
+        }
+
+        .lcd-line {
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            border: 1px solid #333;
+            padding: 10px;
+            background: #0a0a0a;
+        }
+
+        .status-label {
+            color: #888;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .status-value.on {
+            color: #00ff00;
+            text-shadow: 0 0 8px #00ff00;
+        }
+
+        .status-value.off {
+            color: #333;
+        }
+
+        .controls {
+            border-top: 1px solid #333;
+            padding-top: 20px;
+        }
+
+        .control-label {
+            color: #00ffff;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #00ffff;
+            border: 2px solid #00ffff;
+            padding: 20px 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.1s;
+            text-transform: uppercase;
+        }
+
+        button:hover:not(:disabled) {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 15px #00ffff;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.95);
+            background: #ff00ff;
+            border-color: #ff00ff;
+            color: #fff;
+        }
+
+        button.active {
+            background: #ff00ff;
+            border-color: #ff00ff;
+            box-shadow: 0 0 15px #ff00ff;
+        }
+
+        button:disabled {
+            background: #111;
+            color: #333;
+            border-color: #333;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .serial-section {
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            text-align: center;
+        }
+
+        .serial-btn {
+            background: #000;
+            border-color: #ff00ff;
+            color: #ff00ff;
+            padding: 15px 40px;
+        }
+
+        .serial-btn:hover {
+            background: #ff00ff;
+            color: #000;
+        }
+
+        .serial-status {
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .serial-status.connected {
+            color: #00ff00;
+        }
+
+        .beam-viz {
+            margin: 15px 0;
+            padding: 10px;
+            background: #000;
+            border: 1px solid #333;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+
+        .beam-line {
+            color: #ffff00;
+            text-shadow: 0 0 5px #ffff00;
+            white-space: nowrap;
+        }
+
+        .info {
+            font-size: 0.7em;
+            color: #555;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .connection-required {
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px dashed #ff00ff;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #ff00ff;
+            font-size: 0.9em;
+        }
+
+        .connection-required.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <div class="header">
+            <div class="title">KNIGHTDRIVER</div>
+            <div class="subtitle">TOYOTA HILUX CONTROL SYSTEM v1.0</div>
+        </div>
+
+        <div class="display">
+            <div class="lcd-line" id="lcdLine1">WAITING FOR</div>
+            <div class="lcd-line" id="lcdLine2">ARDUINO...</div>
+        </div>
+
+        <div class="beam-viz">
+            <div class="beam-line" id="beamDisplay">━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-item">
+                <div class="status-label">HIGH BEAMS</div>
+                <div class="status-value off" id="statusHigh">OFF</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">SPOTLIGHTS</div>
+                <div class="status-value off" id="statusSpot">OFF</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="connection-required" id="connectionMsg">
+                ⚠ CONNECT ARDUINO TO ENABLE CONTROLS
+            </div>
+            <div class="control-label">[ CONTROLS ]</div>
+            <div class="buttons">
+                <button id="btnFlash"
+                        onmousedown="flash()"
+                        onmouseup="releaseFlash()"
+                        ontouchstart="flash()"
+                        ontouchend="releaseFlash()">
+                    ▲ FLASH
+                </button>
+                <button id="btnToggle" onclick="toggleHigh()">
+                    ● TOGGLE
+                </button>
+                <button id="btnDip"
+                        onmousedown="dip()"
+                        onmouseup="releaseDip()"
+                        ontouchstart="dip()"
+                        ontouchend="releaseDip()">
+                    ▼ DIP
+                </button>
+            </div>
+        </div>
+
+        <div class="serial-section">
+            <button class="serial-btn" id="btnSerial" onclick="toggleSerial()">
+                CONNECT ARDUINO
+            </button>
+            <div class="serial-status" id="serialStatus">DISCONNECTED</div>
+        </div>
+
+        <div class="info">
+            FLASH x2 = TOGGLE SPOTS │ TOGGLE = HIGH BEAMS │ DIP = HOLD<br>
+            <span style="color: #666; font-size: 0.9em;">Connection issues? Try: Chrome → Settings → Privacy → Site Settings → Serial Ports → Remove device</span>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let highBeamsOn = false;
+        let spotlightsEnabled = false;
+        let dipActive = false;
+        let flashCount = 0;
+        let flashTimeout = null;
+        let port = null;
+        let writer = null;
+
+        // Update display
+        function updateDisplay() {
+            // LCD simulation
+            const line1 = document.getElementById('lcdLine1');
+            const line2 = document.getElementById('lcdLine2');
+
+            if (dipActive) {
+                line1.textContent = '[TRUCK] <DIP>      ';
+            } else if (highBeamsOn && spotlightsEnabled) {
+                line1.textContent = '[TRUCK]═══════════>';
+            } else if (highBeamsOn) {
+                line1.textContent = '[TRUCK]══════      ';
+            } else {
+                line1.textContent = '[TRUCK]            ';
+            }
+
+            // Status
+            document.getElementById('statusHigh').textContent = (highBeamsOn && !dipActive) ? 'ON' : 'OFF';
+            document.getElementById('statusHigh').className = 'status-value ' + ((highBeamsOn && !dipActive) ? 'on' : 'off');
+
+            document.getElementById('statusSpot').textContent = (spotlightsEnabled && highBeamsOn && !dipActive) ? 'ON' : (spotlightsEnabled ? 'ARMED' : 'OFF');
+            document.getElementById('statusSpot').className = 'status-value ' + ((spotlightsEnabled && highBeamsOn && !dipActive) ? 'on' : 'off');
+
+            // Beam visualization
+            const beamDisplay = document.getElementById('beamDisplay');
+            if (dipActive) {
+                beamDisplay.textContent = '━━                          ';
+            } else if (highBeamsOn && spotlightsEnabled) {
+                beamDisplay.textContent = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+            } else if (highBeamsOn) {
+                beamDisplay.textContent = '━━━━━━━━━━━━━               ';
+            } else {
+                beamDisplay.textContent = '                            ';
+            }
+        }
+
+        // Controls
+        function toggleHigh() {
+            highBeamsOn = !highBeamsOn;
+            sendCommand('SELECT');
+            updateDisplay();
+        }
+
+        function flash() {
+            flashCount++;
+            sendCommand('UP');
+
+            if (flashCount === 1) {
+                flashTimeout = setTimeout(() => {
+                    flashCount = 0;
+                }, 3000);
+            } else if (flashCount === 2) {
+                clearTimeout(flashTimeout);
+                spotlightsEnabled = !spotlightsEnabled;
+                flashCount = 0;
+            }
+            updateDisplay();
+        }
+
+        function releaseFlash() {
+            sendCommand('UP_RELEASE');
+        }
+
+        function dip() {
+            dipActive = true;
+            sendCommand('DOWN');
+            updateDisplay();
+        }
+
+        function releaseDip() {
+            dipActive = false;
+            sendCommand('DOWN_RELEASE');
+            updateDisplay();
+        }
+
+        // Serial
+        async function toggleSerial() {
+            if (port) {
+                await disconnectSerial();
+            } else {
+                await connectSerial();
+            }
+        }
+
+        async function connectSerial() {
+            try {
+                // Update status
+                document.getElementById('serialStatus').textContent = 'CONNECTING...';
+
+                // Request port
+                port = await navigator.serial.requestPort();
+
+                // Close if already open
+                if (port.readable || port.writable) {
+                    try {
+                        await port.close();
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (e) {
+                        console.log('Port was not open:', e);
+                    }
+                }
+
+                // Open port
+                await port.open({
+                    baudRate: 9600,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+
+                writer = port.writable.getWriter();
+
+                document.getElementById('serialStatus').textContent = 'CONNECTED';
+                document.getElementById('serialStatus').classList.add('connected');
+                document.getElementById('btnSerial').textContent = 'DISCONNECT';
+
+                // Enable controls
+                setControlsEnabled(true);
+
+                // Update display
+                document.getElementById('lcdLine1').textContent = 'SYSTEM READY';
+                document.getElementById('lcdLine2').textContent = 'CONTROLS ACTIVE';
+
+                console.log('Arduino connected successfully');
+            } catch (error) {
+                console.error('Serial connection error:', error);
+                let errorMsg = 'ERROR: ';
+                if (error.name === 'InvalidStateError') {
+                    errorMsg += 'PORT IN USE';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg += 'PORT NOT FOUND';
+                } else if (error.message) {
+                    errorMsg += error.message.substring(0, 20);
+                } else {
+                    errorMsg += 'UNKNOWN';
+                }
+                document.getElementById('serialStatus').textContent = errorMsg;
+                setControlsEnabled(false);
+
+                // Clean up
+                port = null;
+                writer = null;
+            }
+        }
+
+        async function disconnectSerial() {
+            if (writer) {
+                writer.releaseLock();
+            }
+            if (port) {
+                await port.close();
+            }
+            port = null;
+            writer = null;
+            document.getElementById('serialStatus').textContent = 'DISCONNECTED';
+            document.getElementById('serialStatus').classList.remove('connected');
+            document.getElementById('btnSerial').textContent = 'CONNECT ARDUINO';
+
+            // Disable controls
+            setControlsEnabled(false);
+
+            // Reset state
+            highBeamsOn = false;
+            spotlightsEnabled = false;
+            dipActive = false;
+
+            // Update display
+            document.getElementById('lcdLine1').textContent = 'WAITING FOR';
+            document.getElementById('lcdLine2').textContent = 'ARDUINO...';
+            updateDisplay();
+        }
+
+        async function sendCommand(cmd) {
+            if (!writer) return;
+            const encoder = new TextEncoder();
+            await writer.write(encoder.encode(cmd + '\n'));
+        }
+
+        // Enable/disable controls
+        function setControlsEnabled(enabled) {
+            document.getElementById('btnFlash').disabled = !enabled;
+            document.getElementById('btnToggle').disabled = !enabled;
+            document.getElementById('btnDip').disabled = !enabled;
+
+            // Show/hide connection message
+            const msg = document.getElementById('connectionMsg');
+            if (enabled) {
+                msg.classList.add('hidden');
+            } else {
+                msg.classList.remove('hidden');
+            }
+        }
+
+        // Initialize - controls disabled until Arduino connects
+        setControlsEnabled(false);
+        updateDisplay();
+    </script>
+</body>
+</html>
